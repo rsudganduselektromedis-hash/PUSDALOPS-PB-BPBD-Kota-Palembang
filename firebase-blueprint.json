@@ -1,0 +1,575 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Profil pengguna sistem Pusdalops-PB BPBD Kota Palembang beserta peran RBAC.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "role": {
+          "type": "string",
+          "enum": ["Admin", "Operator Pusdalops", "Petugas Input"]
+        },
+        "jabatan": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "agencyCode": {
+          "type": "string",
+          "pattern": "^BPBD-PLG$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "displayName", "email", "role", "jabatan", "active", "agencyCode", "createdAt", "updatedAt"]
+    },
+    "AdminMarker": {
+      "title": "AdminMarker",
+      "description": "Penanda hak akses Administrator terverifikasi.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "grantedBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "grantedBy", "createdAt"]
+    },
+    "IdentitasKejadian": {
+      "title": "IdentitasKejadian",
+      "description": "Identitas resmi laporan kejadian bencana.",
+      "type": "object",
+      "properties": {
+        "nomorLaporan": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 64
+        },
+        "tanggalKejadian": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "hariKejadian": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "waktuKejadian": {
+          "type": "string",
+          "maxLength": 16
+        },
+        "jenisKejadian": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "lokasiKejadian": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "kecamatan": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "kelurahan": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "alamatLengkap": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "titikKoordinat": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "sumberInformasi": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "waktuLaporanDiterima": {
+          "type": "string",
+          "maxLength": 32
+        }
+      },
+      "required": [
+        "nomorLaporan",
+        "tanggalKejadian",
+        "hariKejadian",
+        "waktuKejadian",
+        "jenisKejadian",
+        "lokasiKejadian",
+        "kecamatan",
+        "kelurahan",
+        "alamatLengkap",
+        "titikKoordinat",
+        "sumberInformasi",
+        "waktuLaporanDiterima"
+      ]
+    },
+    "DataKejadianDetail": {
+      "title": "DataKejadianDetail",
+      "description": "Kronologi, penyebab, kondisi terkini, dampak fisik, dan luas area terdampak.",
+      "type": "object",
+      "properties": {
+        "kronologi": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "penyebab": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "kondisiTerkini": {
+          "type": "string",
+          "maxLength": 1500
+        },
+        "dampakKejadian": {
+          "type": "string",
+          "maxLength": 1500
+        },
+        "luasAreaHa": {
+          "type": "number"
+        },
+        "jumlahRumahTerdampak": {
+          "type": "integer"
+        },
+        "jumlahFasumTerdampak": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kronologi",
+        "penyebab",
+        "kondisiTerkini",
+        "dampakKejadian",
+        "luasAreaHa",
+        "jumlahRumahTerdampak",
+        "jumlahFasumTerdampak"
+      ]
+    },
+    "DataKorban": {
+      "title": "DataKorban",
+      "description": "Data korban bencana dengan pemisahan tegas antara nilai 0 dan null (belum diketahui).",
+      "type": "object",
+      "properties": {
+        "meninggal": { "type": "integer" },
+        "lukaLuka": { "type": "integer" },
+        "hilang": { "type": "integer" },
+        "mengungsi": { "type": "integer" },
+        "terdampakJiwa": { "type": "integer" },
+        "kkTerdampak": { "type": "integer" }
+      },
+      "required": ["meninggal", "lukaLuka", "hilang", "mengungsi", "terdampakJiwa", "kkTerdampak"]
+    },
+    "DataPenanganan": {
+      "title": "DataPenanganan",
+      "description": "Data operasi penanganan TRC BPBD dan unsur terkait.",
+      "type": "object",
+      "properties": {
+        "instansiTerlibat": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "jumlahPersonel": {
+          "type": "integer"
+        },
+        "unsurTerlibat": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "peralatanDigunakan": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "tindakanPenanganan": {
+          "type": "string",
+          "maxLength": 3000
+        },
+        "waktuMulai": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "waktuSelesai": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "statusPenanganan": {
+          "type": "string",
+          "enum": ["Dalam Penanganan", "Selesai", "Monitoring"]
+        },
+        "keteranganTambahan": {
+          "type": "string",
+          "maxLength": 1500
+        }
+      },
+      "required": [
+        "instansiTerlibat",
+        "jumlahPersonel",
+        "unsurTerlibat",
+        "peralatanDigunakan",
+        "tindakanPenanganan",
+        "waktuMulai",
+        "waktuSelesai",
+        "statusPenanganan",
+        "keteranganTambahan"
+      ]
+    },
+    "Incident": {
+      "title": "Incident",
+      "description": "Dokumen induk kejadian bencana beserta korban dan penanganannya (1:1 atomik).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "agencyCode": {
+          "type": "string",
+          "pattern": "^BPBD-PLG$"
+        },
+        "identitas": { "$ref": "#/entities/IdentitasKejadian" },
+        "dataKejadian": { "$ref": "#/entities/DataKejadianDetail" },
+        "korban": { "$ref": "#/entities/DataKorban" },
+        "penanganan": { "$ref": "#/entities/DataPenanganan" },
+        "docCount": {
+          "type": "integer"
+        },
+        "createdBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdByName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "agencyCode",
+        "identitas",
+        "dataKejadian",
+        "korban",
+        "penanganan",
+        "docCount",
+        "createdBy",
+        "createdByName",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "HandlingLog": {
+      "title": "HandlingLog",
+      "description": "Catatan progres penanganan dan monitoring lapangan per kejadian.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "agencyCode": {
+          "type": "string",
+          "pattern": "^BPBD-PLG$"
+        },
+        "incidentId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "statusBaru": {
+          "type": "string",
+          "enum": ["Dalam Penanganan", "Selesai", "Monitoring"]
+        },
+        "catatan": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1500
+        },
+        "petugas": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "createdBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "agencyCode", "incidentId", "statusBaru", "catatan", "petugas", "createdBy", "createdAt"]
+    },
+    "Documentation": {
+      "title": "Documentation",
+      "description": "Dokumentasi foto kejadian, foto penanganan, dan dokumen pendukung.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "agencyCode": {
+          "type": "string",
+          "pattern": "^BPBD-PLG$"
+        },
+        "incidentId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["foto_kejadian", "foto_penanganan", "dokumen_pendukung"]
+        },
+        "fileName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "mimeType": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "sizeBytes": {
+          "type": "integer"
+        },
+        "dataUrl": {
+          "type": "string",
+          "maxLength": 650000
+        },
+        "caption": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "createdBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "agencyCode",
+        "incidentId",
+        "category",
+        "fileName",
+        "mimeType",
+        "sizeBytes",
+        "dataUrl",
+        "caption",
+        "createdBy",
+        "createdAt"
+      ]
+    },
+    "ReportArchive": {
+      "title": "ReportArchive",
+      "description": "Arsip laporan resmi Pusdalops-PB dan narasi Status WhatsApp yang disimpan.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "agencyCode": {
+          "type": "string",
+          "pattern": "^BPBD-PLG$"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["laporan_resmi", "status_whatsapp"]
+        },
+        "reportType": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "periodLabel": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 25000
+        },
+        "incidentCount": {
+          "type": "integer"
+        },
+        "createdBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdByName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "agencyCode",
+        "category",
+        "reportType",
+        "title",
+        "periodLabel",
+        "content",
+        "incidentCount",
+        "createdBy",
+        "createdByName",
+        "createdAt"
+      ]
+    },
+    "AgencySettings": {
+      "title": "AgencySettings",
+      "description": "Konfigurasi instansi BPBD Kota Palembang dan slot logo resmi.",
+      "type": "object",
+      "properties": {
+        "agencyName": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "subUnitName": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "cityGovernmentName": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "callCenter": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "kepalaPelaksana": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "nipKepala": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "logoPemkotDataUrl": {
+          "type": "string",
+          "maxLength": 450000
+        },
+        "logoBpbdDataUrl": {
+          "type": "string",
+          "maxLength": 450000
+        },
+        "updatedBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "agencyName",
+        "subUnitName",
+        "cityGovernmentName",
+        "address",
+        "callCenter",
+        "email",
+        "kepalaPelaksana",
+        "nipKepala",
+        "logoPemkotDataUrl",
+        "logoBpbdDataUrl",
+        "updatedBy",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Profil pengguna Pusdalops-PB dan peran akses (Admin, Operator Pusdalops, Petugas Input)."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminMarker" },
+      "description": "Dokumen penanda hak Administrator."
+    },
+    "/incidents/{incidentId}": {
+      "schema": { "$ref": "#/entities/Incident" },
+      "description": "Data kejadian bencana BPBD Kota Palembang termasuk data korban dan penanganan."
+    },
+    "/handling_logs/{logId}": {
+      "schema": { "$ref": "#/entities/HandlingLog" },
+      "description": "Riwayat log progres penanganan dan monitoring per kejadian."
+    },
+    "/documentations/{docId}": {
+      "schema": { "$ref": "#/entities/Documentation" },
+      "description": "Lampiran foto kejadian, foto penanganan, dan dokumen pendukung."
+    },
+    "/reports/{reportId}": {
+      "schema": { "$ref": "#/entities/ReportArchive" },
+      "description": "Arsip laporan resmi dan narasi Status WhatsApp."
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/AgencySettings" },
+      "description": "Pengaturan identitas instansi dan logo resmi BPBD & Pemerintah Kota Palembang."
+    }
+  }
+}

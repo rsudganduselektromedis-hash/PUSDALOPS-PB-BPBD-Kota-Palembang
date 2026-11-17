@@ -1,0 +1,439 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL HELPERS ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'rsudgandus.elektromedis@gmail.com';
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        isBootstrappedAdmin() ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function userDocExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isOperator() {
+      return isVerifiedUser() && (
+        isAdmin() ||
+        (userDocExists() && userDoc().active == true && userDoc().role in ['Admin', 'Operator Pusdalops'])
+      );
+    }
+
+    function isActiveStaff() {
+      return isVerifiedUser() && (
+        isAdmin() ||
+        (userDocExists() && userDoc().active == true && userDoc().role in ['Admin', 'Operator Pusdalops', 'Petugas Input'])
+      );
+    }
+
+    function isNullableInt(val, maxVal) {
+      return val == null || (val is int && val >= 0 && val <= maxVal);
+    }
+
+    function isNullableNumber(val, maxVal) {
+      return val == null || ((val is int || val is float) && val >= 0 && val <= maxVal);
+    }
+
+    // --- ENTITY VALIDATION BLUEPRINTS ---
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'role', 'jabatan', 'active', 'agencyCode', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'displayName', 'email', 'role', 'jabatan', 'active', 'agencyCode', 'createdAt', 'updatedAt']) &&
+        data.uid is string && data.uid == userId && isValidId(data.uid) &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120 &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+        data.role in ['Admin', 'Operator Pusdalops', 'Petugas Input'] &&
+        data.jabatan is string && data.jabatan.size() <= 120 &&
+        data.active is bool &&
+        data.agencyCode is string && data.agencyCode == 'BPBD-PLG' &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidAdminMarker(data, userId) {
+      return data.keys().hasAll(['uid', 'grantedBy', 'createdAt']) &&
+        data.keys().hasOnly(['uid', 'grantedBy', 'createdAt']) &&
+        data.uid is string && data.uid == userId && isValidId(data.uid) &&
+        data.grantedBy is string && data.grantedBy.size() >= 1 && data.grantedBy.size() <= 128 &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidIdentitas(idObj) {
+      return idObj is map &&
+        idObj.keys().hasAll([
+          'nomorLaporan', 'tanggalKejadian', 'hariKejadian', 'waktuKejadian',
+          'jenisKejadian', 'lokasiKejadian', 'kecamatan', 'kelurahan',
+          'alamatLengkap', 'titikKoordinat', 'sumberInformasi', 'waktuLaporanDiterima'
+        ]) &&
+        idObj.keys().hasOnly([
+          'nomorLaporan', 'tanggalKejadian', 'hariKejadian', 'waktuKejadian',
+          'jenisKejadian', 'lokasiKejadian', 'kecamatan', 'kelurahan',
+          'alamatLengkap', 'titikKoordinat', 'sumberInformasi', 'waktuLaporanDiterima'
+        ]) &&
+        idObj.nomorLaporan is string && idObj.nomorLaporan.size() >= 5 && idObj.nomorLaporan.size() <= 64 &&
+        idObj.tanggalKejadian is string && idObj.tanggalKejadian.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+        idObj.hariKejadian is string && idObj.hariKejadian.size() >= 1 && idObj.hariKejadian.size() <= 20 &&
+        idObj.waktuKejadian is string && idObj.waktuKejadian.size() <= 16 &&
+        idObj.jenisKejadian is string && idObj.jenisKejadian.size() >= 1 && idObj.jenisKejadian.size() <= 80 &&
+        idObj.lokasiKejadian is string && idObj.lokasiKejadian.size() >= 1 && idObj.lokasiKejadian.size() <= 200 &&
+        idObj.kecamatan is string && idObj.kecamatan.size() >= 1 && idObj.kecamatan.size() <= 60 &&
+        idObj.kelurahan is string && idObj.kelurahan.size() <= 80 &&
+        idObj.alamatLengkap is string && idObj.alamatLengkap.size() <= 500 &&
+        idObj.titikKoordinat is string && idObj.titikKoordinat.size() <= 80 &&
+        idObj.sumberInformasi is string && idObj.sumberInformasi.size() <= 160 &&
+        idObj.waktuLaporanDiterima is string && idObj.waktuLaporanDiterima.size() <= 32;
+    }
+
+    function isValidDataKejadian(dk) {
+      return dk is map &&
+        dk.keys().hasAll([
+          'kronologi', 'penyebab', 'kondisiTerkini', 'dampakKejadian',
+          'luasAreaHa', 'jumlahRumahTerdampak', 'jumlahFasumTerdampak'
+        ]) &&
+        dk.keys().hasOnly([
+          'kronologi', 'penyebab', 'kondisiTerkini', 'dampakKejadian',
+          'luasAreaHa', 'jumlahRumahTerdampak', 'jumlahFasumTerdampak'
+        ]) &&
+        dk.kronologi is string && dk.kronologi.size() <= 4000 &&
+        dk.penyebab is string && dk.penyebab.size() <= 1000 &&
+        dk.kondisiTerkini is string && dk.kondisiTerkini.size() <= 1500 &&
+        dk.dampakKejadian is string && dk.dampakKejadian.size() <= 1500 &&
+        isNullableNumber(dk.luasAreaHa, 1000000) &&
+        isNullableInt(dk.jumlahRumahTerdampak, 1000000) &&
+        isNullableInt(dk.jumlahFasumTerdampak, 1000000);
+    }
+
+    function isValidDataKorban(k) {
+      return k is map &&
+        k.keys().hasAll(['meninggal', 'lukaLuka', 'hilang', 'mengungsi', 'terdampakJiwa', 'kkTerdampak']) &&
+        k.keys().hasOnly(['meninggal', 'lukaLuka', 'hilang', 'mengungsi', 'terdampakJiwa', 'kkTerdampak']) &&
+        isNullableInt(k.meninggal, 10000000) &&
+        isNullableInt(k.lukaLuka, 10000000) &&
+        isNullableInt(k.hilang, 10000000) &&
+        isNullableInt(k.mengungsi, 10000000) &&
+        isNullableInt(k.terdampakJiwa, 10000000) &&
+        isNullableInt(k.kkTerdampak, 10000000);
+    }
+
+    function isValidDataPenanganan(p) {
+      return p is map &&
+        p.keys().hasAll([
+          'instansiTerlibat', 'jumlahPersonel', 'unsurTerlibat', 'peralatanDigunakan',
+          'tindakanPenanganan', 'waktuMulai', 'waktuSelesai', 'statusPenanganan', 'keteranganTambahan'
+        ]) &&
+        p.keys().hasOnly([
+          'instansiTerlibat', 'jumlahPersonel', 'unsurTerlibat', 'peralatanDigunakan',
+          'tindakanPenanganan', 'waktuMulai', 'waktuSelesai', 'statusPenanganan', 'keteranganTambahan'
+        ]) &&
+        p.instansiTerlibat is string && p.instansiTerlibat.size() <= 400 &&
+        isNullableInt(p.jumlahPersonel, 100000) &&
+        p.unsurTerlibat is string && p.unsurTerlibat.size() <= 500 &&
+        p.peralatanDigunakan is string && p.peralatanDigunakan.size() <= 500 &&
+        p.tindakanPenanganan is string && p.tindakanPenanganan.size() <= 3000 &&
+        p.waktuMulai is string && p.waktuMulai.size() <= 32 &&
+        p.waktuSelesai is string && p.waktuSelesai.size() <= 32 &&
+        p.statusPenanganan in ['Dalam Penanganan', 'Selesai', 'Monitoring'] &&
+        p.keteranganTambahan is string && p.keteranganTambahan.size() <= 1500;
+    }
+
+    function isValidIncident(data, incidentId) {
+      return data.keys().hasAll([
+          'id', 'agencyCode', 'identitas', 'dataKejadian', 'korban', 'penanganan',
+          'docCount', 'createdBy', 'createdByName', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'agencyCode', 'identitas', 'dataKejadian', 'korban', 'penanganan',
+          'docCount', 'createdBy', 'createdByName', 'createdAt', 'updatedAt'
+        ]) &&
+        data.id is string && data.id == incidentId && isValidId(data.id) &&
+        data.agencyCode is string && data.agencyCode == 'BPBD-PLG' &&
+        isValidIdentitas(data.identitas) &&
+        isValidDataKejadian(data.dataKejadian) &&
+        isValidDataKorban(data.korban) &&
+        isValidDataPenanganan(data.penanganan) &&
+        data.docCount is int && data.docCount >= 0 && data.docCount <= 200 &&
+        data.createdBy is string && isValidId(data.createdBy) &&
+        data.createdByName is string && data.createdByName.size() >= 1 && data.createdByName.size() <= 120 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidHandlingLog(data, logId) {
+      return data.keys().hasAll(['id', 'agencyCode', 'incidentId', 'statusBaru', 'catatan', 'petugas', 'createdBy', 'createdAt']) &&
+        data.keys().hasOnly(['id', 'agencyCode', 'incidentId', 'statusBaru', 'catatan', 'petugas', 'createdBy', 'createdAt']) &&
+        data.id is string && data.id == logId && isValidId(data.id) &&
+        data.agencyCode is string && data.agencyCode == 'BPBD-PLG' &&
+        data.incidentId is string && isValidId(data.incidentId) &&
+        data.statusBaru in ['Dalam Penanganan', 'Selesai', 'Monitoring'] &&
+        data.catatan is string && data.catatan.size() >= 1 && data.catatan.size() <= 1500 &&
+        data.petugas is string && data.petugas.size() >= 1 && data.petugas.size() <= 120 &&
+        data.createdBy is string && data.createdBy == request.auth.uid && isValidId(data.createdBy) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidDocumentation(data, docId) {
+      return data.keys().hasAll([
+          'id', 'agencyCode', 'incidentId', 'category', 'fileName',
+          'mimeType', 'sizeBytes', 'dataUrl', 'caption', 'createdBy', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'agencyCode', 'incidentId', 'category', 'fileName',
+          'mimeType', 'sizeBytes', 'dataUrl', 'caption', 'createdBy', 'createdAt'
+        ]) &&
+        data.id is string && data.id == docId && isValidId(data.id) &&
+        data.agencyCode is string && data.agencyCode == 'BPBD-PLG' &&
+        data.incidentId is string && isValidId(data.incidentId) &&
+        data.category in ['foto_kejadian', 'foto_penanganan', 'dokumen_pendukung'] &&
+        data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 180 &&
+        data.mimeType is string && data.mimeType.size() >= 1 && data.mimeType.size() <= 100 &&
+        data.sizeBytes is int && data.sizeBytes >= 1 && data.sizeBytes <= 700000 &&
+        data.dataUrl is string && data.dataUrl.size() >= 10 && data.dataUrl.size() <= 650000 &&
+        data.caption is string && data.caption.size() <= 240 &&
+        data.createdBy is string && data.createdBy == request.auth.uid && isValidId(data.createdBy) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidReportArchive(data, reportId) {
+      return data.keys().hasAll([
+          'id', 'agencyCode', 'category', 'reportType', 'title',
+          'periodLabel', 'content', 'incidentCount', 'createdBy', 'createdByName', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'agencyCode', 'category', 'reportType', 'title',
+          'periodLabel', 'content', 'incidentCount', 'createdBy', 'createdByName', 'createdAt'
+        ]) &&
+        data.id is string && data.id == reportId && isValidId(data.id) &&
+        data.agencyCode is string && data.agencyCode == 'BPBD-PLG' &&
+        data.category in ['laporan_resmi', 'status_whatsapp'] &&
+        data.reportType is string && data.reportType.size() >= 1 && data.reportType.size() <= 120 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.periodLabel is string && data.periodLabel.size() <= 120 &&
+        data.content is string && data.content.size() >= 1 && data.content.size() <= 25000 &&
+        data.incidentCount is int && data.incidentCount >= 0 && data.incidentCount <= 100000 &&
+        data.createdBy is string && data.createdBy == request.auth.uid && isValidId(data.createdBy) &&
+        data.createdByName is string && data.createdByName.size() >= 1 && data.createdByName.size() <= 120 &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidAgencySettings(data) {
+      return data.keys().hasAll([
+          'agencyName', 'subUnitName', 'cityGovernmentName', 'address',
+          'callCenter', 'email', 'kepalaPelaksana', 'nipKepala',
+          'logoPemkotDataUrl', 'logoBpbdDataUrl', 'updatedBy', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'agencyName', 'subUnitName', 'cityGovernmentName', 'address',
+          'callCenter', 'email', 'kepalaPelaksana', 'nipKepala',
+          'logoPemkotDataUrl', 'logoBpbdDataUrl', 'updatedBy', 'updatedAt'
+        ]) &&
+        data.agencyName is string && data.agencyName.size() >= 1 && data.agencyName.size() <= 160 &&
+        data.subUnitName is string && data.subUnitName.size() <= 160 &&
+        data.cityGovernmentName is string && data.cityGovernmentName.size() <= 160 &&
+        data.address is string && data.address.size() <= 300 &&
+        data.callCenter is string && data.callCenter.size() <= 60 &&
+        data.email is string && data.email.size() <= 120 &&
+        data.kepalaPelaksana is string && data.kepalaPelaksana.size() <= 120 &&
+        data.nipKepala is string && data.nipKepala.size() <= 60 &&
+        data.logoPemkotDataUrl is string && data.logoPemkotDataUrl.size() <= 450000 &&
+        data.logoBpbdDataUrl is string && data.logoBpbdDataUrl.size() <= 450000 &&
+        data.updatedBy is string && data.updatedBy == request.auth.uid && isValidId(data.updatedBy) &&
+        data.updatedAt is timestamp;
+    }
+
+    // --- COLLECTION RULES ---
+
+    // Connection probe document
+    match /test/connection {
+      allow get: if isSignedIn();
+      allow list, write: if false;
+    }
+
+    // User profiles (PII protected: email only readable by owner or Admin)
+    match /users/{userId} {
+      allow get: if isVerifiedUser() && isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isVerifiedUser() && (isBootstrappedAdmin() || resource.data.uid == request.auth.uid);
+
+      allow create: if isVerifiedUser() && isValidId(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        isOwner(userId) &&
+        incoming().email == request.auth.token.email &&
+        incoming().active == true &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (
+          (isBootstrappedAdmin() && incoming().role == 'Admin') ||
+          (!isBootstrappedAdmin() && incoming().role == 'Petugas Input')
+        );
+
+      allow update: if isVerifiedUser() && isValidId(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().uid == existing().uid &&
+        incoming().email == existing().email &&
+        incoming().agencyCode == existing().agencyCode &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          // Tier 1: Admin can manage role and active status
+          (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'active', 'jabatan', 'displayName', 'updatedAt'])) ||
+          // Tier 2: Owner can update displayName and jabatan only (no role/active self-escalation)
+          (isOwner(userId) && incoming().role == existing().role && incoming().active == existing().active &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'jabatan', 'updatedAt']))
+        );
+
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // Admin markers
+    match /admins/{userId} {
+      allow get: if isVerifiedUser() && isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isVerifiedUser() && (isBootstrappedAdmin() || resource.data.uid == request.auth.uid);
+      allow create: if isAdmin() && isValidId(userId) &&
+        isValidAdminMarker(incoming(), userId) &&
+        incoming().grantedBy == request.auth.uid &&
+        incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // Incidents (Data Kejadian + Data Korban + Data Penanganan)
+    match /incidents/{incidentId} {
+      allow get: if isVerifiedUser() && isValidId(incidentId) && isActiveStaff();
+      allow list: if isVerifiedUser() && resource.data.agencyCode == 'BPBD-PLG';
+
+      allow create: if isVerifiedUser() && isValidId(incidentId) &&
+        isValidIncident(incoming(), incidentId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (incoming().createdBy == request.auth.uid || isAdmin()) &&
+        isActiveStaff();
+
+      allow update: if isVerifiedUser() && isValidId(incidentId) &&
+        isValidIncident(incoming(), incidentId) &&
+        incoming().id == existing().id &&
+        incoming().agencyCode == existing().agencyCode &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          // Tier 1: Admin can edit all mutable fields even on 'Selesai'
+          (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['identitas', 'dataKejadian', 'korban', 'penanganan', 'docCount', 'updatedAt'])) ||
+          // Tier 2: Operator Pusdalops can edit incident & monitoring status
+          (isOperator() && incoming().diff(existing()).affectedKeys().hasOnly(['identitas', 'dataKejadian', 'korban', 'penanganan', 'docCount', 'updatedAt'])) ||
+          // Tier 3: Petugas Input can edit own incident while status is not terminal ('Selesai')
+          (isActiveStaff() && existing().createdBy == request.auth.uid && existing().penanganan.statusPenanganan != 'Selesai' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['identitas', 'dataKejadian', 'korban', 'penanganan', 'updatedAt'])) ||
+          // Tier 4: Active staff incrementing/decrementing documentation counter on upload/delete
+          (isActiveStaff() && incoming().diff(existing()).affectedKeys().hasOnly(['docCount', 'updatedAt']))
+        );
+
+      allow delete: if isVerifiedUser() && isValidId(incidentId) && isOperator();
+    }
+
+    // Handling logs (timeline updates)
+    match /handling_logs/{logId} {
+      allow get: if isVerifiedUser() && isValidId(logId) && isActiveStaff();
+      allow list: if isVerifiedUser() && resource.data.agencyCode == 'BPBD-PLG';
+
+      allow create: if isVerifiedUser() && isValidId(logId) &&
+        isValidHandlingLog(incoming(), logId) &&
+        incoming().createdAt == request.time &&
+        isActiveStaff() &&
+        exists(/databases/$(database)/documents/incidents/$(incoming().incidentId));
+
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(logId);
+    }
+
+    // Documentations (Foto kejadian, foto penanganan, dokumen pendukung)
+    match /documentations/{docId} {
+      allow get: if isVerifiedUser() && isValidId(docId) && isActiveStaff();
+      allow list: if isVerifiedUser() && resource.data.agencyCode == 'BPBD-PLG';
+
+      allow create: if isVerifiedUser() && isValidId(docId) &&
+        isValidDocumentation(incoming(), docId) &&
+        incoming().createdAt == request.time &&
+        isActiveStaff() &&
+        exists(/databases/$(database)/documents/incidents/$(incoming().incidentId));
+
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(docId) && (
+        isAdmin() ||
+        (isActiveStaff() && existing().createdBy == request.auth.uid)
+      );
+    }
+
+    // Archived reports & WhatsApp status narratives
+    match /reports/{reportId} {
+      allow get: if isVerifiedUser() && isValidId(reportId) && isActiveStaff();
+      allow list: if isVerifiedUser() && resource.data.agencyCode == 'BPBD-PLG';
+
+      allow create: if isVerifiedUser() && isValidId(reportId) &&
+        isValidReportArchive(incoming(), reportId) &&
+        incoming().createdAt == request.time &&
+        isActiveStaff();
+
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(reportId) && (
+        isAdmin() ||
+        (isActiveStaff() && existing().createdBy == request.auth.uid)
+      );
+    }
+
+    // Agency settings (logos and official metadata)
+    match /settings/{settingId} {
+      allow get: if isVerifiedUser() && isValidId(settingId) && isActiveStaff();
+      allow list: if false;
+
+      allow create: if isAdmin() && isValidId(settingId) &&
+        isValidAgencySettings(incoming()) &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isAdmin() && isValidId(settingId) &&
+        isValidAgencySettings(incoming()) &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'agencyName', 'subUnitName', 'cityGovernmentName', 'address',
+          'callCenter', 'email', 'kepalaPelaksana', 'nipKepala',
+          'logoPemkotDataUrl', 'logoBpbdDataUrl', 'updatedBy', 'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+  }
+}

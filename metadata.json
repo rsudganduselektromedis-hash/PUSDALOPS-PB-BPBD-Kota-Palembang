@@ -1,0 +1,6 @@
+{
+  "name": "PUSDALOPS-PB BPBD Kota Palembang",
+  "description": "Sistem Informasi Rekapitulasi Data Kejadian, Monitoring Penanganan Bencana, dan Laporan Operasional BPBD Kota Palembang.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

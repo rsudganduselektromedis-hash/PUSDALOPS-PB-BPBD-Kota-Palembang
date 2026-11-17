@@ -1,0 +1,97 @@
+/**
+ * Security Rules Unit Verification Specification (Dirty Dozen Test Cases)
+ * Designed for @firebase/rules-unit-testing against firestore.rules.
+ */
+export const dirtyDozenCases = [
+  {
+    name: '01. Unauthenticated read/write to incidents is denied',
+    operation: 'create',
+    path: 'incidents/inc-1',
+    auth: null,
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '02. Unverified email user write to incidents is denied',
+    operation: 'create',
+    path: 'incidents/inc-2',
+    auth: { uid: 'user-unverified', token: { email: 'test@example.com', email_verified: false } },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '03. Self-escalation creating UserProfile with Admin role is denied',
+    operation: 'create',
+    path: 'users/user-petugas',
+    auth: { uid: 'user-petugas', token: { email: 'petugas@example.com', email_verified: true } },
+    payload: { role: 'Admin' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '04. Privilege update changing own role to Operator Pusdalops is denied',
+    operation: 'update',
+    path: 'users/user-petugas',
+    auth: { uid: 'user-petugas', token: { email: 'petugas@example.com', email_verified: true } },
+    payload: { role: 'Operator Pusdalops' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '05. PII leak reading another user profile is denied',
+    operation: 'get',
+    path: 'users/user-other',
+    auth: { uid: 'user-petugas', token: { email: 'petugas@example.com', email_verified: true } },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '06. Shadow ghost field injection on incident create is denied',
+    operation: 'create',
+    path: 'incidents/inc-shadow',
+    auth: { uid: 'user-petugas', token: { email: 'petugas@example.com', email_verified: true } },
+    payload: { isApproved: true },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '07. Identity spoofing setting createdBy to another user is denied',
+    operation: 'create',
+    path: 'incidents/inc-spoof',
+    auth: { uid: 'user-petugas', token: { email: 'petugas@example.com', email_verified: true } },
+    payload: { createdBy: 'user-admin' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '08. Timestamp forgery using client Date instead of request.time is denied',
+    operation: 'create',
+    path: 'incidents/inc-time',
+    auth: { uid: 'user-petugas', token: { email: 'petugas@example.com', email_verified: true } },
+    payload: { createdAt: '2020-01-01T00:00:00Z' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '09. ID poisoning with invalid characters is denied',
+    operation: 'create',
+    path: 'incidents/bad$id..invalid',
+    auth: { uid: 'user-petugas', token: { email: 'petugas@example.com', email_verified: true } },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '10. Orphaned documentation without parent incident is denied',
+    operation: 'create',
+    path: 'documentations/doc-orphan',
+    auth: { uid: 'user-petugas', token: { email: 'petugas@example.com', email_verified: true } },
+    payload: { incidentId: 'non-existent-inc' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '11. Negative victim count is denied',
+    operation: 'create',
+    path: 'incidents/inc-neg',
+    auth: { uid: 'user-petugas', token: { email: 'petugas@example.com', email_verified: true } },
+    payload: { korban: { meninggal: -5 } },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '12. Terminal state bypass updating Selesai incident as Petugas Input is denied',
+    operation: 'update',
+    path: 'incidents/inc-selesai',
+    auth: { uid: 'user-petugas', token: { email: 'petugas@example.com', email_verified: true } },
+    expected: 'PERMISSION_DENIED',
+  },
+];
